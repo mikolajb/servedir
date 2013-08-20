@@ -12,4 +12,4 @@ or by specifying path and port:
     ./servedir --path=/home/foo/Documents --port=12345
 
 # Packages
-  - [Archlinux](http://github.com/mikolajb/servedir-pkgbuild)
+  - [Archlinux AUR](https://aur.archlinux.org/packages/servedir/)
