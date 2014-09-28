@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"time"
 	"html/template"
@@ -11,29 +12,36 @@ import (
 	"strings"
 	"os"
 	"archive/zip"
-	"bytes"
 	"strconv"
 )
 
-func archivist() (func(string, []byte), func() []byte) {
-	archive := new(bytes.Buffer)
-	writer := zip.NewWriter(archive)
+func archivist(w io.Writer) (func(string, io.Reader), func()) {
+	zipWriter := zip.NewWriter(w)
 
-	return func(path string, data []byte) {
-		fmt.Println("compressing: ", path,
-			" len: ", len(data))
+	return func(path string, data io.Reader){
+		fmt.Println("compressing: ", path)
 
 		if len(path) == 0 {
 			return
 		}
 
-		f, _ := writer.Create(path)
-		f.Write(data)
+		f, _ := zipWriter.Create(path)
+		_, err := io.Copy(f, data)
+
+		if err != nil {
+			fmt.Println(err.Error())
+		}
 
 		return
-	}, func() []byte {
-		writer.Close()
-		return archive.Bytes()
+	}, func() {
+		err := zipWriter.Close()
+
+		if err != nil {
+			fmt.Println(err.Error())
+			fmt.Fprint(w, ErrorMessage)
+		}
+
+		return
 	}
 }
 
@@ -98,7 +106,7 @@ func (fileServeHandler FileServeHandler) ServeHTTP(w http.ResponseWriter, r *htt
 	}
 
 	if !fileInfo.IsDir() {
-		conetnt, err := ioutil.ReadFile(relpath)
+		file, err := os.Open(relpath)
 
 		if err != nil {
 			fmt.Println(err.Error())
@@ -106,12 +114,12 @@ func (fileServeHandler FileServeHandler) ServeHTTP(w http.ResponseWriter, r *htt
 			return
 		}
 
-		w.Write(conetnt)
+		io.Copy(w, file)
 		return
 	}
 
 	if r.URL.Query().Get("archive") == "true" {
-		add, result := archivist()
+		add, result := archivist(w)
 
 		err = filepath.Walk(relpath,
 			func (path string, info os.FileInfo, err error) error {
@@ -121,11 +129,11 @@ func (fileServeHandler FileServeHandler) ServeHTTP(w http.ResponseWriter, r *htt
 					return nil
 				}
 
-				content, err := ioutil.ReadFile(path)
-				add(archRelpath, content)
+				file, err := os.Open(path)
+				add(archRelpath, file)
 				return nil
 			})
-		w.Write(result())
+		result()
 		return
 	}
 
