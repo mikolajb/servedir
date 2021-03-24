@@ -1,3 +1,4 @@
+[![Go](https://github.com/mikolajb/servedir/actions/workflows/go.yml/badge.svg?branch=master)](https://github.com/mikolajb/servedir/actions/workflows/go.yml)
 # How to use
 First compile using go:
 
